@@ -1,0 +1,98 @@
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="14">
+	<PropertyGroup>
+		<Root>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\..'))</Root>
+		<TempFiles>$(Root)\temp</TempFiles>
+		<Downloads>$(TempFiles)\down loads</Downloads>
+		<TargetDir>$(TempFiles)\source</TargetDir>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<NuGetVer>v4.9.4</NuGetVer>
+		<WGetVer>wget-1.11.4-1</WGetVer>
+		<SevenZipVer>18.1.0</SevenZipVer>
+		<BoostVer>1.68.0</BoostVer>
+		<BoostArchive>boost-$(BoostVer)</BoostArchive>
+
+		<NuGetUrl>https://dist.nuget.org/win-x86-commandline/$(NuGetVer)/nuget.exe</NuGetUrl>
+		<NuGet>$(downloads)\nuget.exe</NuGet>
+
+		<SevenZip>$(downloads)\7-Zip.CommandLine.$(SevenZipVer)\tools\x64\7za.exe</SevenZip>
+
+		<WGetUrl>https://downloads.sourceforge.net/gnuwin32/$(WGetVer)-bin.zip</WGetUrl>
+		<WGet>$(downloads)\$(WGetVer).exe</WGet>
+	</PropertyGroup>
+
+	<UsingTask TaskName="DownloadFile" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+		<ParameterGroup>
+			<Address ParameterType="System.String" Required="true"/>
+			<FileName ParameterType="System.String" Required="true" />
+		</ParameterGroup>
+		<Task>
+			<Reference Include="System" />
+			<Code Type="Fragment" Language="cs">
+			<![CDATA[
+				if (!System.IO.File.Exists(FileName))
+				{
+					System.Console.WriteLine("Downloading {0}", Address);
+					new System.Net.WebClient().DownloadFile(Address, FileName);
+				}
+			]]>
+			</Code>
+		</Task>
+	</UsingTask>
+
+	<Target Name="Clean">
+		<ItemGroup>
+			<FileToDelete Include="$(TempFiles)/**/*"/>
+		</ItemGroup>
+		<Delete Files="@(FileToDelete)" ContinueOnError="WarnAndContinue"/>
+
+		<ItemGroup>
+			<Directories Include="$([System.IO.Directory]::GetDirectories('$(TempFiles)', '*', System.IO.SearchOption.AllDirectories))" />
+			<Directories>
+				<Files>$([System.IO.Directory]::GetFiles("%(Directories.Identity)", "*", System.IO.SearchOption.AllDirectories).get_Length())</Files>
+			</Directories>
+		</ItemGroup>
+		<RemoveDir Directories="@(Directories)" Condition="%(Files)=='0'" />
+	</Target>
+
+	<Target Name="DownloadTools">
+		<MakeDir Directories="$(Downloads)"/>
+		<DownloadFile Address="$(NuGetUrl)" FileName="$(NuGet)" />
+
+		<Message Text="1" Condition='Exists($(SevenZip))'/>
+		<Message Text="2" Condition='!Exists($(SevenZip))'/>
+
+		<Exec Condition='!Exists($(SevenZip))' Command='"$(NuGet)" install 7-Zip.CommandLine -version 18.1.0 -OutputDirectory "$(Downloads)" -PackageSaveMode nuspec' />
+
+		<!-- Source "%s" -nocache -DirectDownload -NonInteractive -ForceEnglishOutput -PackageSaveMode nuspec" />-->
+		<!--<DownloadFile Address="$(SevenZipUrl)" FileName="$(Downloads)\$(SevenZipVer).exe" />-->
+		<!--<DownloadFile Address="$(WGetUrl)" FileName="$(Downloads)\$(WGet).zip" />-->
+		<!--<Unzip SourceFiles="$(Downloads)\$(WGet).zip" DestinationFolder="$(Downloads)\unzip" />-->
+		<!--<Unzip2 ZipPath="$(Downloads)\$(WGet).zip" ExtractPath="$(Downloads)\unzip" />-->
+	</Target>
+
+	<ItemGroup>
+		<Modules Include="test;algorithm"/>
+	</ItemGroup>
+
+	<Target Name="DownloadBoostModule" Condition="!Exists('$(TargetDir)\$(Module)-$(BoostArchive).installed')">
+		<Message Text="installing boost $(Module)"/>
+		<PropertyGroup>
+			<ModuleUrl>https://github.com/boostorg/$(Module)/archive/$(BoostArchive).tar.gz</ModuleUrl>
+			<FileName>$(Downloads)\$(Module)-$(BoostArchive).tar.gz</FileName>
+		</PropertyGroup>
+		<Message Text="installing boost $(FileName)"/>
+		<DownloadFile Condition="!Exists('$(FileName)')" Address="$(ModuleUrl)" FileName="$(FileName)" />
+		<Exec Command='"$(SevenZip)" x "$(FileName)" -so | "$(SevenZip)" x -aoa -si -ttar -o"$(TargetDir)"'/>
+		<Touch Files="$(TargetDir)\$(Module)-$(BoostArchive).installed" AlwaysCreate="true"/>
+	</Target>
+
+	<Target Name="DownloadBoostModules" DependsOnTargets="DownloadTools" Inputs="@(Modules)" Outputs="%(Identity).bogus"> 
+		<MSBuild Projects="$(MSBuildProjectFullPath)" Properties="Module=%(Modules.identity)" Targets="DownloadBoostModule" />
+		<!--<Move SourceFiles=""/>-->
+	</Target>
+
+	<Target Name="Build" DependsOnTargets="DownloadBoostModules"/> 
+
+</Project>
