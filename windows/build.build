@@ -3,8 +3,14 @@
 		<Root>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\..'))</Root>
 		<TempFiles>$(Root)\temp</TempFiles>
 		<Downloads>$(TempFiles)\down loads</Downloads>
-		<TargetDir>$(TempFiles)\source</TargetDir>
+		<TargetDir>$(TempFiles)\include</TargetDir> <!-- add find directory above logic-->
 	</PropertyGroup>
+
+	<ItemGroup>
+		<Modules Include="test"/>
+		<Modules Include="algorithm;assert;bind;build;compatibility;config;core;detail;exception;function;io;iterator;mpl;numeric_conversion;optional;preprocessor;smart_ptr;static_assert;timer;type_traits;utility"/>
+		<Modules Include="type_index;container_hash;throw_exception;predef;integer;move;range"/>
+	</ItemGroup>
 
 	<PropertyGroup>
 		<NuGetVer>v4.9.4</NuGetVer>
@@ -42,57 +48,40 @@
 	</UsingTask>
 
 	<Target Name="Clean">
-		<ItemGroup>
-			<FileToDelete Include="$(TempFiles)/**/*"/>
-		</ItemGroup>
-		<Delete Files="@(FileToDelete)" ContinueOnError="WarnAndContinue"/>
-
-		<ItemGroup>
-			<Directories Include="$([System.IO.Directory]::GetDirectories('$(TempFiles)', '*', System.IO.SearchOption.AllDirectories))" />
-			<Directories>
-				<Files>$([System.IO.Directory]::GetFiles("%(Directories.Identity)", "*", System.IO.SearchOption.AllDirectories).get_Length())</Files>
-			</Directories>
-		</ItemGroup>
-		<RemoveDir Directories="@(Directories)" Condition="%(Files)=='0'" />
+		<Exec Command='RmDir /s /q "$(TempFiles)"' />
 	</Target>
 
 	<Target Name="DownloadTools">
 		<MakeDir Directories="$(Downloads)"/>
 		<DownloadFile Address="$(NuGetUrl)" FileName="$(NuGet)" />
-
-		<Message Text="1" Condition='Exists($(SevenZip))'/>
-		<Message Text="2" Condition='!Exists($(SevenZip))'/>
-
 		<Exec Condition='!Exists($(SevenZip))' Command='"$(NuGet)" install 7-Zip.CommandLine -version 18.1.0 -OutputDirectory "$(Downloads)" -PackageSaveMode nuspec' />
-
-		<!-- Source "%s" -nocache -DirectDownload -NonInteractive -ForceEnglishOutput -PackageSaveMode nuspec" />-->
-		<!--<DownloadFile Address="$(SevenZipUrl)" FileName="$(Downloads)\$(SevenZipVer).exe" />-->
-		<!--<DownloadFile Address="$(WGetUrl)" FileName="$(Downloads)\$(WGet).zip" />-->
-		<!--<Unzip SourceFiles="$(Downloads)\$(WGet).zip" DestinationFolder="$(Downloads)\unzip" />-->
-		<!--<Unzip2 ZipPath="$(Downloads)\$(WGet).zip" ExtractPath="$(Downloads)\unzip" />-->
 	</Target>
 
-	<ItemGroup>
-		<Modules Include="test;algorithm"/>
-	</ItemGroup>
-
-	<Target Name="DownloadBoostModule" Condition="!Exists('$(TargetDir)\$(Module)-$(BoostArchive).installed')">
-		<Message Text="installing boost $(Module)"/>
+	<Target Name="DownloadBoostModule">
 		<PropertyGroup>
 			<ModuleUrl>https://github.com/boostorg/$(Module)/archive/$(BoostArchive).tar.gz</ModuleUrl>
 			<FileName>$(Downloads)\$(Module)-$(BoostArchive).tar.gz</FileName>
 		</PropertyGroup>
-		<Message Text="installing boost $(FileName)"/>
-		<DownloadFile Condition="!Exists('$(FileName)')" Address="$(ModuleUrl)" FileName="$(FileName)" />
-		<Exec Command='"$(SevenZip)" x "$(FileName)" -so | "$(SevenZip)" x -aoa -si -ttar -o"$(TargetDir)"'/>
-		<Touch Files="$(TargetDir)\$(Module)-$(BoostArchive).installed" AlwaysCreate="true"/>
+		<DownloadFile Address="$(ModuleUrl)" FileName="$(FileName)" />
+		<Exec Command='"$(SevenZip)" x "$(FileName)" -so | "$(SevenZip)" x -aoa -si -ttar -o"$(TempFiles)"'/>
+
+		<ItemGroup>
+			<Files Include="$(TempFiles)\$(Module)-$(BoostArchive)\include\boost\**\*.*" />
+		</ItemGroup>
+		<Move SourceFiles="@(Files)" DestinationFolder="$(TargetDir)\boost\%(RecursiveDir)"/>
+		<Exec Command='RmDir /s /q "$(TempFiles)\$(Module)-$(BoostArchive)"' />
+
+		<!--<MSBuild Projects="$(MSBuildProjectFullPath)" Properties="Module=%(Modules.identity)" Targets="Move" NoOutput.../>-->
 	</Target>
 
-	<Target Name="DownloadBoostModules" DependsOnTargets="DownloadTools" Inputs="@(Modules)" Outputs="%(Identity).bogus"> 
+	<Target Condition="!Exists('$(TargetDir)\successfully_installed')" Name="DownloadBoostModules" DependsOnTargets="DownloadTools" Inputs="@(Modules)" Outputs="%(Identity).bogus">
 		<MSBuild Projects="$(MSBuildProjectFullPath)" Properties="Module=%(Modules.identity)" Targets="DownloadBoostModule" />
-		<!--<Move SourceFiles=""/>-->
 	</Target>
 
-	<Target Name="Build" DependsOnTargets="DownloadBoostModules"/> 
+	<Target Name="MarkAsInstalled">
+		<Touch Files="$(TargetDir)\successfully_installed" AlwaysCreate="true"/>
+	</Target>
+
+	<Target Name="Build" DependsOnTargets="DownloadBoostModules;MarkAsInstalled"/> 
 
 </Project>
