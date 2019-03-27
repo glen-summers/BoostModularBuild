@@ -19,6 +19,6 @@ set args=%*
 if "%1" NEQ "" set args=/t:%*
 
 call "%vsInstallationPath%\VC\Auxiliary\Build\vcvars64.bat"
-%msb% /toolsversion:4.0 /p:vsInstallationPath="%vsInstallationPath%" %buildFile% %args%
+%msb% /toolsversion:4.0 /p:vsInstallationPath="%vsInstallationPath%" /v:m %buildFile% %args%
 
 exit /b 0

@@ -1,9 +1,24 @@
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="14">
 	<PropertyGroup>
+		<NuGetVer>v4.9.4</NuGetVer>
+		<WGetVer>wget-1.11.4-1</WGetVer>
+		<SevenZipVer>18.1.0</SevenZipVer>
+		<BoostVer>1.68.0</BoostVer>
+
+		<NuGetUrl>https://dist.nuget.org/win-x86-commandline/$(NuGetVer)/nuget.exe</NuGetUrl>
+		<WGetUrl>https://downloads.sourceforge.net/gnuwin32/$(WGetVer)-bin.zip</WGetUrl>
+
+		<BoostArchive>boost-$(BoostVer)</BoostArchive>
+		<BoostVerUnd>$(BoostVer.Replace('.', '_'))</BoostVerUnd>
+		<TargetSig>.\ExternalDependencies\.</TargetSig>
+
 		<Root>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\..'))</Root>
 		<TempFiles>$(Root)\temp</TempFiles>
-		<Downloads>$(TempFiles)\down loads</Downloads>
-		<TargetDir>$(TempFiles)\include</TargetDir> <!-- add find directory above logic-->
+		<Downloads>$(TempFiles)\downloads</Downloads>
+
+		<NuGet>$(downloads)\nuget.exe</NuGet>
+		<SevenZip>$(downloads)\7-Zip.CommandLine.$(SevenZipVer)\tools\x64\7za.exe</SevenZip>
+		<WGet>$(downloads)\$(WGetVer).exe</WGet>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -12,21 +27,38 @@
 		<Modules Include="type_index;container_hash;throw_exception;predef;integer;move;range"/>
 	</ItemGroup>
 
-	<PropertyGroup>
-		<NuGetVer>v4.9.4</NuGetVer>
-		<WGetVer>wget-1.11.4-1</WGetVer>
-		<SevenZipVer>18.1.0</SevenZipVer>
-		<BoostVer>1.68.0</BoostVer>
-		<BoostArchive>boost-$(BoostVer)</BoostArchive>
-
-		<NuGetUrl>https://dist.nuget.org/win-x86-commandline/$(NuGetVer)/nuget.exe</NuGetUrl>
-		<NuGet>$(downloads)\nuget.exe</NuGet>
-
-		<SevenZip>$(downloads)\7-Zip.CommandLine.$(SevenZipVer)\tools\x64\7za.exe</SevenZip>
-
-		<WGetUrl>https://downloads.sourceforge.net/gnuwin32/$(WGetVer)-bin.zip</WGetUrl>
-		<WGet>$(downloads)\$(WGetVer).exe</WGet>
-	</PropertyGroup>
+	<UsingTask TaskName="FindDirectoryAbove" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+		<ParameterGroup>
+			<Start ParameterType="System.String" Required="true" />
+			<Signature ParameterType="System.String" Required="true" />
+			<Fallback ParameterType="System.String" Required="true" />
+			<Result ParameterType="System.String" Output="true" />
+		</ParameterGroup>
+		<Task>
+			<Reference Include="System" />
+			<Reference Include="System.IO" />
+			<Code Type="Fragment" Language="cs">
+			<![CDATA[
+				for (string dir = Start; !string.IsNullOrEmpty(dir);)
+				{
+					var comb = Path.Combine(dir, Signature);
+					if (Directory.Exists(comb))
+					{
+						Result = Path.GetFullPath(comb);
+						break;
+					}
+					var dirInfo = Directory.GetParent(dir);
+					if (dirInfo == null) 
+					{
+						Result = Fallback;
+						break;
+					}
+					dir = dirInfo.FullName;
+				}
+			]]>
+			</Code>
+		</Task>
+	</UsingTask>
 
 	<UsingTask TaskName="DownloadFile" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
 		<ParameterGroup>
@@ -47,8 +79,27 @@
 		</Task>
 	</UsingTask>
 
+	<Target Name="Init">
+		<FindDirectoryAbove Start="$(Root)" Signature="$(TargetSig)" Fallback="$(TempFiles)">
+			<Output TaskParameter="Result" PropertyName="TargetRoot" />
+		</FindDirectoryAbove>
+		<!--<PropertyGroup>
+			<TargetDir>$(TargetRoot)\boost_$(BoostVerUnd)_TEST</TargetDir>
+		</PropertyGroup>-->
+
+		<CreateProperty Value="$(TargetRoot)\boost_$(BoostVerUnd)_TEST">
+			<Output TaskParameter="Value" PropertyName="TargetDir" />
+		</CreateProperty>
+
+		<Message Text="Target : $(TargetDir)" Importance="high"/>
+	</Target>
+
 	<Target Name="Clean">
-		<Exec Command='RmDir /s /q "$(TempFiles)"' />
+		<Exec Condition="Exists($(TempFiles))" Command='RmDir /s /q "$(TempFiles)"' />
+	</Target>
+
+	<Target Name="Nuke" DependsOnTargets="Init;Clean">
+		<Exec Condition="Exists($(TargetDir))" Command='RmDir /s /q "$(TargetDir)"' />
 	</Target>
 
 	<Target Name="DownloadTools">
@@ -63,25 +114,19 @@
 			<FileName>$(Downloads)\$(Module)-$(BoostArchive).tar.gz</FileName>
 		</PropertyGroup>
 		<DownloadFile Address="$(ModuleUrl)" FileName="$(FileName)" />
-		<Exec Command='"$(SevenZip)" x "$(FileName)" -so | "$(SevenZip)" x -aoa -si -ttar -o"$(TempFiles)"'/>
+		<Exec Command='"$(SevenZip)" x "$(FileName)" -so | "$(SevenZip)" x -aoa -si -ttar -o"$(TempFiles)"' StandardOutputImportance="low"/>
 
 		<ItemGroup>
 			<Files Include="$(TempFiles)\$(Module)-$(BoostArchive)\include\boost\**\*.*" />
 		</ItemGroup>
 		<Move SourceFiles="@(Files)" DestinationFolder="$(TargetDir)\boost\%(RecursiveDir)"/>
 		<Exec Command='RmDir /s /q "$(TempFiles)\$(Module)-$(BoostArchive)"' />
-
-		<!--<MSBuild Projects="$(MSBuildProjectFullPath)" Properties="Module=%(Modules.identity)" Targets="Move" NoOutput.../>-->
 	</Target>
 
-	<Target Condition="!Exists('$(TargetDir)\successfully_installed')" Name="DownloadBoostModules" DependsOnTargets="DownloadTools" Inputs="@(Modules)" Outputs="%(Identity).bogus">
-		<MSBuild Projects="$(MSBuildProjectFullPath)" Properties="Module=%(Modules.identity)" Targets="DownloadBoostModule" />
-	</Target>
-
-	<Target Name="MarkAsInstalled">
+	<Target Name="DownloadBoostModules" DependsOnTargets="DownloadTools" Condition="!Exists('$(TargetDir)\successfully_installed')" Inputs="@(Modules)" Outputs="%(Identity).bogus">
+		<MSBuild Projects="$(MSBuildProjectFullPath)" Properties="Module=%(Modules.identity);TargetDir=$(TargetDir)" Targets="DownloadBoostModule" />
 		<Touch Files="$(TargetDir)\successfully_installed" AlwaysCreate="true"/>
 	</Target>
 
-	<Target Name="Build" DependsOnTargets="DownloadBoostModules;MarkAsInstalled"/> 
-
+	<Target Name="Build" DependsOnTargets="Init;DownloadBoostModules"/>
 </Project>
