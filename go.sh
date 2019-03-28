@@ -4,12 +4,11 @@ BOOST_VER=1.68.0
 DEP_DIR=ExternalDependencies
 BOOST_VER_UND="boost_${BOOST_VER//./_}"
 WGET_OPT="--secure-protocol=auto --no-check-certificate"
-MODULES="test algorithm"
+MODULES1="test"
+MODULES2="algorithm assert bind compatibility config core detail exception function io iterator mpl numeric_conversion optional preprocessor smart_ptr static_assert timer type_traits utility"
+MODULES3="type_index container_hash throw_exception predef integer move range"
 
-#test
-#algorithm;assert;bind;build;compatibility;config;core;detail;exception;function;io;iterator;mpl;numeric_conversion;optional;preprocessor;smart_ptr;static_assert;timer;type_traits;utility
-#type_index;container_hash;throw_exception;predef;integer;move;range
-
+MODULES="${MODULES1} ${MODULES2} ${MODULES3}"
 ###########################################################################
 
 ErrorExit()
@@ -107,7 +106,8 @@ Build()
 	fi
 }
 
-Clean() {
+Clean() 
+{
 	DeleteTree "${TEMP_DIR}"
 }
 
