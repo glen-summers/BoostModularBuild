@@ -3,7 +3,7 @@
 BOOST_VER=1.68.0
 DEP_DIR=ExternalDependencies
 BOOST_VER_UND="boost_${BOOST_VER//./_}"
-WGET_OPT=--secure-protocol=auto --no-check-certificate
+WGET_OPT="--secure-protocol=auto --no-check-certificate"
 MODULES="test algorithm"
 
 #test
@@ -34,6 +34,7 @@ Download()
 
 	if [[ ! -f "${FILENAME}" ]]; then
 		wget "${URL}" -O "${FILENAME}" ${WGET_OPT} || ErrorExit "wget failed"
+		echo "${FILENAME} downloaded"
 	else
 		echo "${FILENAME} present"
 	fi
@@ -46,10 +47,11 @@ ExtractTarGz()
 	local FILTER=${3}
 
 	mkdir -p "${DIR}" || ErrorExit "mkdir failed"
-	tar xzf "${ARCHIVE}" -C "${DIR}" --strip 1 "${FILTER}" || ErrorExit "tar failed"
+	tar xzf "${ARCHIVE}" -C "${DIR}" --strip 2 "${FILTER}" || ErrorExit "tar failed"
 }
 
-DeleteTree() {
+DeleteTree() 
+{
 	local dir="${1}"
 	if [[ -d "${dir}" ]]; then
 		echo "deleting ${dir}..."
@@ -93,15 +95,16 @@ Init()
 	else
 		BOOST_TARGET="${TARGET_ROOT}/${DEP_DIR}/${BOOST_VER_UND}_TEST"
 	fi
-
-	echo "BOOST_TARGET = ${BOOST_TARGET}"
-	echo "DOWNLOAD_DIR = ${DOWNLOAD_DIR}"
 }
 
 Build()
 {
-	mkdir -p "${DOWNLOAD_DIR}"
-	GetBoostModules ${MODULES}
+	echo "BOOST_TARGET = ${BOOST_TARGET}"
+	if [[ ! -f "${BOOST_TARGET}/successfully_installed" ]]; then
+		mkdir -p "${DOWNLOAD_DIR}"
+		GetBoostModules ${MODULES}
+		touch "${BOOST_TARGET}/successfully_installed"
+	fi
 }
 
 Clean() {
