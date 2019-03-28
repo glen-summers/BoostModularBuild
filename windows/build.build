@@ -129,4 +129,8 @@
 	</Target>
 
 	<Target Name="Build" DependsOnTargets="Init;DownloadBoostModules"/>
+
+	<Target Name="Wsl">
+		<Exec Command="wsl.exe ./go.sh" WorkingDirectory="$(Root)"/>
+	</Target>
 </Project>
