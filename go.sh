@@ -1,6 +1,14 @@
 #!/bin/bash
 
 BOOST_VER=1.68.0
+DEP_DIR=ExternalDependencies
+BOOST_VER_UND="boost_${BOOST_VER//./_}"
+WGET_OPT=--secure-protocol=auto --no-check-certificate
+MODULES="test algorithm"
+
+#test
+#algorithm;assert;bind;build;compatibility;config;core;detail;exception;function;io;iterator;mpl;numeric_conversion;optional;preprocessor;smart_ptr;static_assert;timer;type_traits;utility
+#type_index;container_hash;throw_exception;predef;integer;move;range
 
 ###########################################################################
 
@@ -19,91 +27,98 @@ FindDirectoryAbove()
 	echo "${path}"
 }
 
-Download()
+Download() 
 {
-	local URL=${1}
-	local CONTEXT=`dirname "${2}"`
-	local ARCHIVE=`basename "${2}"`
+	local URL="${1}"
+	local FILENAME="${2}"
 
-	echo ${CONTEXT}
-	echo ${ARCHIVE}
-
-	local CACHED="${TEMP_DIR}/${CONTEXT}/${ARCHIVE}"
-
-	if [[ ! -f "${CACHED}" ]]; then
-		echo wget "${URL}/${ARCHIVE}" -P "${TEMP_DIR}/${CONTEXT}" ${WGET_OPT}
-		wget "${URL}/${ARCHIVE}" -P "${TEMP_DIR}/${CONTEXT}" ${WGET_OPT} || ErrorExit "wget failed"
+	if [[ ! -f "${FILENAME}" ]]; then
+		wget "${URL}" -O "${FILENAME}" ${WGET_OPT} || ErrorExit "wget failed"
 	else
-		echo "${CACHED} present"
+		echo "${FILENAME} present"
 	fi
 }
 
-GetTarGz()
+ExtractTarGz()
 {
-	local URL=${1}
-	local ARCHIVE=${2}
-	local DIR=${3}
+	local ARCHIVE=${1}
+	local DIR=${2}
+	local FILTER=${3}
 
-	Download "${URL}" "${ARCHIVE}"
-	echo tar xzf "${TEMP_DIR}/${ARCHIVE}" -C "${DIR}" || ErrorExit "tar failed"
 	mkdir -p "${DIR}" || ErrorExit "mkdir failed"
-	tar xzf "${TEMP_DIR}/${ARCHIVE}" -C "${DIR}" --strip 1 || ErrorExit "tar failed"
+	tar xzf "${ARCHIVE}" -C "${DIR}" --strip 1 "${FILTER}" || ErrorExit "tar failed"
+}
+
+DeleteTree() {
+	local dir="${1}"
+	if [[ -d "${dir}" ]]; then
+		echo "deleting ${dir}..."
+		local n=0
+		until [ ${n} -ge 10 ]
+		do
+			rm -frd "${dir}" && return
+			n=$[${n}+1]
+			sleep 1
+		done
+		ErrorExit "failed to delete, retries exceeded"
+	fi
 }
 
 GetBoostModules()
- {
-	local dir="$1"
+{
 	local mod
-	for mod in "${@:2}"
+	for mod in "${@:1}"
 	do
-		local module="${mod//-/_}"
-		local ARCHIVE="${module}/boost-${BOOST_VER}.tar.gz"
-		local URL="https://github.com/boostorg/${module}/archive"
-		GetTarGz "${URL}" "${ARCHIVE}" "${dir}"
+		local MODULE="${mod//-/_}"
+		local ARCHIVE="boost-${BOOST_VER}.tar.gz"
+		local URL="https://github.com/boostorg/${MODULE}/archive/${ARCHIVE}"
+		local FILE="${DOWNLOAD_DIR}/${MODULE}-${ARCHIVE}"
+		local FILTER="${MODULE}-boost-${BOOST_VER}/include"
+		Download "${URL}" "${FILE}"
+		ExtractTarGz "${FILE}" "${BOOST_TARGET}" "${FILTER}"
 	done
-	#GetTarGz2 "${URL}" "${ARCHIVE}" "${dir}"
-	#https://github.com/boostorg/test/archive/boost-1.68.0.tar.gz
-	#https://github.com/boostorg/test/archive/test/boost-1.68.0.tar.gz
 }
-
 
 ###########################################################################
 
-Init()
+Init() 
 {
 	ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-
 	TEMP_DIR="${ROOT}/temp"
+	DOWNLOAD_DIR="${TEMP_DIR}/downloads"
 
-	local ABOVE="$( FindDirectoryAbove ${ROOT} ${DEP_DIR} )"
-	if [[ -z "${ABOVE}" ]]; then
-		TARGET_DIR="${TEMP_DIR}"
+	local TARGET_ROOT="$( FindDirectoryAbove ${ROOT} ${DEP_DIR} )"
+	if [[ -z "${TARGET_ROOT}" ]]; then
+		BOOST_TARGET="${TEMP_DIR}"
 	else
-		TARGET_DIR="${ABOVE}/${DEP_DIR}"
+		BOOST_TARGET="${TARGET_ROOT}/${DEP_DIR}/${BOOST_VER_UND}_TEST"
 	fi
-	echo "TARGET_DIR = ${TARGET_DIR}"
-
-	local BOOST_VER_UND="boost_${BOOST_VER//./_}"
-	BOOST_ARCHIVE="${BOOST_VER_UND}.7z"
-	BOOST_TARGET="${TARGET_DIR}/${BOOST_VER_UND}"
 
 	echo "BOOST_TARGET = ${BOOST_TARGET}"
+	echo "DOWNLOAD_DIR = ${DOWNLOAD_DIR}"
 }
 
-Build
-{}
+Build()
+{
+	mkdir -p "${DOWNLOAD_DIR}"
+	GetBoostModules ${MODULES}
+}
 
-Nuke{}
+Clean() {
+	DeleteTree "${TEMP_DIR}"
+}
 
-Clean
-{}
+Nuke()
+{
+	DeleteTree "${BOOST_TARGET}"
+}
 
 ###########################################################################
 
 clear
+echo "go $1..."
 Init
 
-echo "go ${1}..."
 case "${1}" in
 	"")
 		;&
@@ -117,5 +132,5 @@ case "${1}" in
 		Clean
 		;;
 	*)
-		ErrorExit "Usage: ${0} {build*|rebuild|clean|nuke}"
+		ErrorExit "Usage: ${0} {build*|clean|nuke}"
 esac
