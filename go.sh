@@ -1,28 +1,24 @@
 #!/bin/bash
 
-# todos
-# lower case vars...
-# defence against circular array references?
-
-BOOST_VER='1.69.0'
-DEP_DIR='ExternalDependencies'
-BOOST_VER_UND="${BOOST_VER//./_}"
-BOOST_ARCHIVE="boost-${BOOST_VER}"
-
-WGET_OPT='--secure-protocol=auto --no-check-certificate'
+boost_ver='1.69.0'
+dep_dir='ExternalDependencies'
+wget_opt='--secure-protocol=auto --no-check-certificate'
 
 Init()
 {
-	ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-	TEMP_DIR="${ROOT}/temp"
-	DOWNLOAD_DIR="${TEMP_DIR}/downloads"
+	root=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+	temp_dir="${root}/temp"
+	download_dir="${temp_dir}/downloads"
+	temp_modules="${temp_dir}/modules"
 
-	local find_dir="$( FindDirectoryAbove ${ROOT} ${DEP_DIR} )"
+	local find_dir="$( FindDirectoryAbove ${root} ${dep_dir} )"
 	if [[ -z "${find_dir}" ]]; then
-		TARGET_ROOT="${TEMP_DIR}/${DEP_DIR}"
+		target_root="${temp_dir}/${dep_dir}"
 	else
-		TARGET_ROOT="${find_dir}/${DEP_DIR}"
+		target_root="${find_dir}/${dep_dir}"
 	fi
+	boost_ver_und="${boost_ver//./_}"
+	boost_archive="boost-${boost_ver}"
 }
 
 Main()
@@ -42,9 +38,8 @@ Main()
 			shift
 			local -a deps_mods="${@}"
 			local -a deps_result
-			echo "Getting dependencies to ${TEMP_DIR}/modules..."
 			GetAllDeps deps_mods deps_result
-			DeleteTree "${TEMP_DIR}/modules"
+			DeleteTree "${temp_modules}"
 			echo "${#deps_result[@]} dependencies:"
 			printf '%s\n' "${deps_result[@]}"
 			;;
@@ -65,37 +60,37 @@ Main()
 Build()
 {
 	local mod="${1}"
-	local BOOST_TARGET="${TARGET_ROOT}/boost_${BOOST_VER_UND}_${mod^^}"
+	local boost_target="${target_root}/boost_${boost_ver_und}_${mod^^}"
 
-	if [[ ! -f "${BOOST_TARGET}/successfully_installed" ]]; then
+	if [[ ! -f "${boost_target}/successfully_installed" ]]; then
 		local -a mods=("${mod}")
 		local -a deps_result
 		GetAllDeps mods deps_result
-		echo "Building ${BOOST_TARGET} with ${#deps_result[@]} mods : ${deps_result[@]}"
+		echo "Building ${boost_target} with ${#deps_result[@]} mods : ${deps_result[@]}"
 
 		local mod
 		for mod in ${deps_result[@]}
 		do
-			GetBoostModule "${mod}" "${BOOST_TARGET}" true
+			GetBoostModule "${mod}" "${boost_target}" true
 		done
 
-		touch "${BOOST_TARGET}/successfully_installed"
+		touch "${boost_target}/successfully_installed"
 
-		DeleteTree "${TEMP_DIR}/modules"
+		DeleteTree "${temp_modules}"
 	fi
-	du -sh "${BOOST_TARGET}" || grep '[0-9\,]\+G'
+	du -sh "${boost_target}" || grep '[0-9\,]\+G'
 }
 
 Clean() 
 {
-	DeleteTree "${TEMP_DIR}"
+	DeleteTree "${temp_dir}"
 }
 
 Nuke()
 {
 	local mod="${1}"
-	local BOOST_TARGET="${TARGET_ROOT}/boost_${BOOST_VER_UND}_${mod^^}"
-	DeleteTree "${BOOST_TARGET}"
+	local boost_target="${target_root}/boost_${boost_ver_und}_${mod^^}"
+	DeleteTree "${boost_target}"
 }
 
 ###########################################################################
@@ -103,66 +98,66 @@ Nuke()
 GetBoostModule()
 {
 	local mod="${1//-/_}"
-	local MOD_DIR="$2"
+	local mod_dir="$2"
 	local force="$3"
 
-	local ARCHIVE="${BOOST_ARCHIVE}.tar.gz"
-	local URL="https://github.com/boostorg/${mod}/archive/${ARCHIVE}"
-	local FILE="${DOWNLOAD_DIR}/${mod}-${ARCHIVE}"
-	local FILTER="${mod}-boost-${BOOST_VER}/include"
+	local archive="${boost_archive}.tar.gz"
+	local url="https://github.com/boostorg/${mod}/archive/${archive}"
+	local file="${download_dir}/${mod}-${archive}"
+	local filter="${mod}-boost-${boost_ver}/include"
 
-	Download "${URL}" "${FILE}"
+	Download "${url}" "${file}"
 
-	if [[ ! -d "${MOD_DIR}" || "${force}" = true ]]; then
-		ExtractTarGz "${FILE}" "${MOD_DIR}" "${FILTER}"
+	if [[ ! -d "${mod_dir}" || "${force}" = true ]]; then
+		ExtractTarGz "${file}" "${mod_dir}" "${filter}"
 	fi
 }
 
-# result sill includes the input CurrentMods
+# result sill includes the input current_mods
 # rejig loop to actually remove so is just deps
 GetAllDeps()
 {
-	local -n CurrentMods=$1
-	local -n Found=$2
-	local -a WorkDeps
+	local -n current_mods=$1
+	local -n found=$2
+	local -a work_deps
 
 	while : ; do
-		if [[ ${#CurrentMods[@]} -eq 0 ]]; then
+		if [[ ${#current_mods[@]} -eq 0 ]]; then
 			break
 		fi
 
-		GetDeps CurrentMods WorkDeps
+		GetDeps current_mods work_deps
 
-		Found=("${Found[@]}" "${CurrentMods[@]}")
-		Unique Found Found
-		UniqueAndRemove WorkDeps Found CurrentMods
+		found=("${found[@]}" "${current_mods[@]}")
+		Unique found found
+		UniqueAndRemove work_deps found current_mods
 	done
 }
 
 GetDeps()
 {
-	local -n MODULES=$1
-	local -n RESULT=$2
+	local -n modules=$1
+	local -n result=$2
 
 	# move these to global at top of file
-	local -a EXT=('h' 'hpp' 'ipp')
+	local -a ext=('h' 'hpp' 'ipp')
 
-	local MATCH='^[ \t]*#[ \t]*include[ \t]*<boost\/[a-zA-Z0-9\._]*[/|>].*$'
-	local CLEAN='s/\/\/.*//;s/\/\*.*//;s/^[ \t]*#[ \t]*pragma.*$//' # fix for #includes in comments, etc.
+	local match='^[ \t]*#[ \t]*include[ \t]*<boost\/[a-zA-Z0-9\._]*[/|>].*$'
+	local clean='s/\/\/.*//;s/\/\*.*//;s/^[ \t]*#[ \t]*pragma.*$//' # fix for #includes in comments, etc.
 
 	# todo generate?
-	local TRANS=\
+	local trans=\
 's/boost\/numeric\/conversion\//boost\/numeric_conversion\//;'\
 's/boost\/numeric\/ublas\//boost\/ublas\//;'\
 's/boost\/archive\//boost\/serialization\//;'\
 's/boost\/functional\//boost\/container_hash\//;'\
 's/boost\/detail\/([^/]+)\//boost\/\1\//;'\
 
-	local CAPTURE='s/.*<boost\/([a-zA-Z0-9\._]*)[\/|>].*/\1/'
-	local TRIM='s/\.hp?p?//;'
+	local capture='s/.*<boost\/([a-zA-Z0-9\._]*)[\/|>].*/\1/'
+	local trim='s/\.hp?p?//;'
 
 	# todo generate
-	local FIX=\
+	local fix=\
 's/^(assert|current_function)$/assert/;'\
 's/^(atomic|memory_order)$/atomic/;'\
 's/^(bind|is_placeholder|mem_fn)$/bind/;'\
@@ -197,38 +192,38 @@ GetDeps()
 
 	#$KnownLibs, calc from master project dir minus non modules
 
-	local INCLUDE
-	printf -v INCLUDE -- '--include=*.%s ' "${EXT[@]}"
+	local include
+	printf -v include -- '--include=*.%s ' "${ext[@]}"
 
-	Unique MODULES MODULES
+	Unique modules modules
 
-	for MODULE in ${MODULES[@]}
+	for module in ${modules[@]}
 	do
-		local target="${TEMP_DIR}/modules/${MODULE}"
-		GetBoostModule "${MODULE}" "${target}" false
+		local target="${temp_modules}/${module}"
+		GetBoostModule "${module}" "${target}" false
 		pushd "${target}/boost"  >/dev/null || ErrorExit
 
-		# $(MATCH) - find all lines with '#include <boost/'
-		# ${CLEAN} - remove comments to avoid erroneous matches
-		# $(TRANS) - translate known module locations
-		# ${CAPTURE} - extract boost module name
-		# ${TRIM} - remove file extensions
-		# $(FIX) - get module from a top level boost file names
+		# $(match) - find all lines with '#include <boost/'
+		# ${clean} - remove comments to avoid erroneous matches
+		# $(trans) - translate known module locations
+		# ${capture} - extract boost module name
+		# ${trim} - remove file extensions
+		# $(fix) - get module from a top level boost file names
 
-		local IGNORE="^(${MODULE}|pending|numeric)$"
+		local ignore="^(${module}|pending|numeric)$"
 
-		local RawDeps=$(IFS='\n' grep -E -r -h --include='*.hpp' --include='*.h' --include='*.ipp' "${MATCH}" \
-			| sed -E "${CLEAN};${TRANS};${CAPTURE}" \
+		local raw_deps=$(IFS='\n' grep -E -r -h --include='*.hpp' --include='*.h' --include='*.ipp' "${match}" \
+			| sed -E "${clean};${trans};${capture}" \
 			| sort | uniq \
-			| sed -E "${TRIM};${FIX}" \
+			| sed -E "${trim};${fix}" \
 			| sort | uniq \
-			| grep -Ev "${IGNORE}" )
+			| grep -Ev "${ignore}" )
 
-		local -a TmpDeps
-		readarray -t TmpDeps <<<"${RawDeps}";
+		local -a tmp_deps
+		readarray -t tmp_deps <<<"${raw_deps}";
 
-		RESULT=("${RESULT[@]}" "${TmpDeps[@]}")
-		Unique RESULT RESULT
+		result=("${result[@]}" "${tmp_deps[@]}")
+		Unique result result
 		popd > /dev/null
 	done
 }
@@ -244,8 +239,8 @@ ErrorExit()
 Unique()
 {
 	local -n values=$1
-	local -n uniqueResult=$2
-	uniqueResult=($(echo "${values[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
+	local -n unique_result=$2
+	unique_result=($(echo "${values[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
 }
 
 UniqueAndRemove()
@@ -268,26 +263,26 @@ FindDirectoryAbove()
 
 Download() 
 {
-	local URL="${1}"
-	local FILENAME="${2}"
+	local url="${1}"
+	local filename="${2}"
 
-	if [[ ! -s "${FILENAME}" ]]; then
-		echo "downloading ${URL} -> ${FILENAME}"
-		mkdir -p "$(dirname "${FILENAME}")" || ErrorExit "mkdir failed"
-		wget "${URL}" -O "${FILENAME}" ${WGET_OPT} || ErrorExit "wget failed"
+	if [[ ! -s "${filename}" ]]; then
+		echo "downloading ${url} -> ${filename}"
+		mkdir -p "$(dirname "${filename}")" || ErrorExit "mkdir failed"
+		wget "${url}" -O "${filename}" ${wget_opt} || ErrorExit "wget failed"
 	fi
 }
 
 ExtractTarGz()
 {
 	# strip parm?
-	local ARCHIVE="${1}"
-	local DIR="${2}"
-	local FILTER="${3}"
+	local archive="${1}"
+	local dir="${2}"
+	local filter="${3}"
 
-	echo "Extracting ${ARCHIVE} -> ${DIR}"
-	mkdir -p "${DIR}" || ErrorExit "mkdir failed"
-	tar xzf "${ARCHIVE}" -C "${DIR}" --strip 2 "${FILTER}" || ErrorExit "tar failed"
+	echo "Extracting ${archive} -> ${dir}"
+	mkdir -p "${dir}" || ErrorExit "mkdir failed"
+	tar xzf "${archive}" -C "${dir}" --strip 2 "${filter}" || ErrorExit "tar failed"
 }
 
 DeleteTree() 
