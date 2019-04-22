@@ -2,7 +2,7 @@
 
 boost_ver='1.69.0'
 dep_dir='ExternalDependencies'
-wget_opt='--secure-protocol=auto --no-check-certificate'
+wget_opt='--secure-protocol=auto --no-check-certificate --quiet'
 
 Init()
 {
@@ -18,7 +18,7 @@ Init()
 		target_root="${find_dir}/${dep_dir}"
 	fi
 	boost_ver_und="${boost_ver//./_}"
-	boost_archive="boost-${boost_ver}"
+	boost_archive="boost-${boost_ver}.tar.gz"
 }
 
 Main()
@@ -28,13 +28,13 @@ Main()
 	Init
 
 	case "${1}" in
-		"build")
+		build)
 			shift
 			[[ "$#" -eq 1 ]] || ErrorExit "Usage: ${0} build <RootModule>"
 			Build "${1}"
 			;;
 
-		"deps")
+		deps)
 			shift
 			local -a deps_mods="${@}"
 			local -a deps_result
@@ -42,6 +42,9 @@ Main()
 			DeleteTree "${temp_modules}"
 			echo "${#deps_result[@]} dependencies:"
 			printf '%s\n' "${deps_result[@]}"
+			;;
+		gen)
+			Generate
 			;;
 
 		nuke)
@@ -81,7 +84,59 @@ Build()
 	du -sh "${boost_target}" || grep '[0-9\,]\+G'
 }
 
-Clean() 
+Generate()
+{
+	local mod_dir="${temp_modules}/boost/"
+	local url="https://github.com/boostorg/boost/archive/${boost_archive}"
+	local file="${download_dir}/boost-${boost_archive}"
+	local filter="boost-boost-${boost_ver}/libs"
+
+	Download "${url}" "${file}"
+
+	if [[ ! -d "${mod_dir}" ]]; then
+		ExtractTarGz "${file}" "${mod_dir}" "${filter}"
+	fi
+
+	# avoid push?
+	pushd "${mod_dir}" >/dev/null || ErrorExit
+	local -a mods=(*/)
+	popd >/dev/null
+	mods=("${mods[@]%?}")
+	#printf "%s\n" "${mods[@]}"
+
+	# numeric: -> numeric_conversion interval odeint ublas
+	local -a del=("numeric")
+	local -a add=("numeric_conversion interval odeint ublas")
+	mods=(${mods[@]} ${add[@]})
+	UniqueAndRemove mods del mods
+
+	local dir
+	#local -a files
+	for dir in ${mods[@]}
+	do
+		GetBoostModule "${dir}" "${temp_modules}/${dir}" false
+
+		# avoid shopt, avoid push?
+		pushd "${temp_modules}/${dir}/boost" >/dev/null || ErrorExit
+		local old=$(shopt -p nullglob)
+		shopt -s nullglob
+		local -a files=(*.{h,hpp})
+		eval "${old}"
+		popd >/dev/null
+
+		files=("${files[@]%\.*}")
+		local -a tmp=(${dir})
+		UniqueAndRemove files tmp files
+
+		if [[ ${#files[@]} -eq 1 && "${files[0]}" != "${dir}" ]]; then
+			echo "'s/${files[0]}/${dir}/;'\\"
+		elif [[ ${#files[@]} -ge 2 ]]; then
+			echo $(IFS=\| ; echo "'s/^(${files[*]})$/${dir}/;'\\")
+		fi
+	done
+}
+
+Clean()
 {
 	DeleteTree "${temp_dir}"
 }
@@ -101,9 +156,8 @@ GetBoostModule()
 	local mod_dir="$2"
 	local force="$3"
 
-	local archive="${boost_archive}.tar.gz"
-	local url="https://github.com/boostorg/${mod}/archive/${archive}"
-	local file="${download_dir}/${mod}-${archive}"
+	local url="https://github.com/boostorg/${mod}/archive/${boost_archive}"
+	local file="${download_dir}/${mod}-${boost_archive}"
 	local filter="${mod}-boost-${boost_ver}/include"
 
 	Download "${url}" "${file}"
@@ -261,7 +315,7 @@ FindDirectoryAbove()
 	echo "${path}"
 }
 
-Download() 
+Download()
 {
 	local url="${1}"
 	local filename="${2}"
@@ -285,7 +339,7 @@ ExtractTarGz()
 	tar xzf "${archive}" -C "${dir}" --strip 2 "${filter}" || ErrorExit "tar failed"
 }
 
-DeleteTree() 
+DeleteTree()
 {
 	local dir="${1}"
 	if [[ -d "${dir}" ]]; then
