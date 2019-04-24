@@ -39,14 +39,12 @@ Main()
 			local -a deps_mods="${@}"
 			local -a deps_result
 			GetAllDeps deps_mods deps_result
-			DeleteTree "${temp_modules}"
 			echo "${#deps_result[@]} dependencies:"
 			printf '%s\n' "${deps_result[@]}"
 			;;
 		gen)
 			local result
 			Generate
-			#DeleteTree "${temp_modules}"
 
 			echo
 			echo "# generated fix"
@@ -130,7 +128,7 @@ Generate()
 		UniqueAndRemove files tmp files
 
 		if [[ ${#files[@]} -eq 1 && "${files[0]}" != "${dir}" ]]; then
-			result+="'s/${files[0]}/${dir}/;'\\"$'\n'
+			result+="'s/^${files[0]}$/${dir}/;'\\"$'\n'
 		elif [[ ${#files[@]} -ge 2 ]]; then
 			result+=$(IFS=\| ; echo "'s/^(${files[*]})$/${dir}/;'\\")$'\n'
 		fi
@@ -206,44 +204,46 @@ GetDeps()
 's/boost\/numeric\/ublas\//boost\/ublas\//;'\
 's/boost\/archive\//boost\/serialization\//;'\
 's/boost\/functional\//boost\/container_hash\//;'\
+'s/boost\/concept\//boost\/concept_check\//;'\
 's/boost\/detail\/([^/]+)\//boost\/\1\//;'\
 
 	local capture='s/.*<boost\/([a-zA-Z0-9\._]*)[\/|>].*/\1/'
 	local trim='s/\.hp?p?//;'
 
-	# todo generate
-	local fix=\
-'s/^(assert|current_function)$/assert/;'\
-'s/^(atomic|memory_order)$/atomic/;'\
-'s/^(bind|is_placeholder|mem_fn)$/bind/;'\
-'s/^(circular_buffer|circular_buffer_fwd)$/circular_buffer/;'\
-'s/^(concept|concept_archetype|concept_check)$/concept_check/;'\
-'s/^(config|cstdint|cxx11_char_types|limits|version)$/config/;'\
-'s/^(contract|contract_macro)$/contract/;'\
+# generated fix
+local fix=\
+'s/^current_function$/assert/;'\
+'s/^memory_order$/atomic/;'\
+'s/^(is_placeholder|mem_fn)$/bind/;'\
+'s/^circular_buffer_fwd$/circular_buffer/;'\
+'s/^concept_archetype$/concept_check/;'\
+'s/^(cstdint|cxx11_char_types|limits|version)$/config/;'\
+'s/^contract_macro$/contract/;'\
 's/^(implicit_cast|polymorphic_cast|polymorphic_pointer_cast)$/conversion/;'\
-'s/^(convert|make_default)$/convert/;'\
+'s/^make_default$/convert/;'\
 's/^(checked_delete|get_pointer|iterator|noncopyable|non_type|ref|swap|type|visit_each)$/core/;'\
 's/^(blank|blank_fwd|cstdlib)$/detail/;'\
-'s/^(dynamic_bitset|dynamic_bitset_fwd)$/dynamic_bitset/;'\
-'s/exception_ptr/exception/;'\
-'s/^(foreach|foreach_fwd)$/foreach/;'\
-'s/^(function|function_equal)$/function/;'\
-'s/^(integer|integer_fwd|integer_traits)$/integer/;'\
-'s/io_fwd/io/;'\
+'s/^dynamic_bitset_fwd$/dynamic_bitset/;'\
+'s/^exception_ptr$/exception/;'\
+'s/^foreach_fwd$/foreach/;'\
+'s/^function_equal$/function/;'\
+'s/^(integer_fwd|integer_traits)$/integer/;'\
+'s/^io_fwd$/io/;'\
 's/^(function_output_iterator|generator_iterator|indirect_reference|iterator_adaptors|next_prior|pointee|shared_container_iterator)$/iterator/;'\
 's/^(cstdfloat|math_fwd)$/math/;'\
 's/^(multi_index_container|multi_index_container_fwd)$/multi_index/;'\
-'s/^(none|none_t|optional)$/optional/;'\
-'s/^(nondet_random|random)$/random/;'\
-'s/^(cregex|regex|regex|regex_fwd)$/regex/;'\
-'s/^(enable_shared_from_this|intrusive_ptr|make_shared|make_unique|pointer_cast|pointer_to_other|scoped_array|scoped_ptr|shared_array|shared_ptr|smart_ptr|weak_ptr)$/smart_ptr/;'\
-'s/cerrno/system/;'\
-'s/^(progress|timer)$/timer/;'\
-'s/^(tokenizer|token_functions|token_iterator)$/tokenizer/;'\
-'s/^(aligned_storage|type_traits)$/type_traits/;'\
+'s/^cast$/numeric_conversion/;'\
+'s/^(none|none_t)$/optional/;'\
+'s/^nondet_random$/random/;'\
+'s/^(cregex|regex_fwd)$/regex/;'\
+'s/^(enable_shared_from_this|intrusive_ptr|make_shared|make_unique|pointer_cast|pointer_to_other|scoped_array|scoped_ptr|shared_array|shared_ptr|weak_ptr)$/smart_ptr/;'\
+'s/^cerrno$/system/;'\
+'s/^progress$/timer/;'\
+'s/^(token_functions|token_iterator)$/tokenizer/;'\
+'s/^aligned_storage$/type_traits/;'\
 's/^(unordered_map|unordered_set)$/unordered/;'\
-'s/^(call_traits|compressed_pair|operators|operators_v1|utility)$/utility/;'\
-'s/cast/numeric_conversion/;'
+'s/^(call_traits|compressed_pair|operators|operators_v1)$/utility/;'
+# generated fix
 
 	#$KnownLibs, calc from master project dir minus non modules
 
