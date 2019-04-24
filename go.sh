@@ -44,7 +44,15 @@ Main()
 			printf '%s\n' "${deps_result[@]}"
 			;;
 		gen)
+			local result
 			Generate
+			#DeleteTree "${temp_modules}"
+
+			echo
+			echo "# generated fix"
+			echo "local fix=\\"
+			echo "${result}"
+			echo "# generated fix"
 			;;
 
 		nuke)
@@ -102,7 +110,6 @@ Generate()
 	local -a mods=(*/)
 	popd >/dev/null
 	mods=("${mods[@]%?}")
-	#printf "%s\n" "${mods[@]}"
 
 	# numeric: -> numeric_conversion interval odeint ublas
 	local -a del=("numeric")
@@ -111,27 +118,21 @@ Generate()
 	UniqueAndRemove mods del mods
 
 	local dir
-	#local -a files
 	for dir in ${mods[@]}
 	do
 		GetBoostModule "${dir}" "${temp_modules}/${dir}" false
 
-		# avoid shopt, avoid push?
-		pushd "${temp_modules}/${dir}/boost" >/dev/null || ErrorExit
-		local old=$(shopt -p nullglob)
-		shopt -s nullglob
-		local -a files=(*.{h,hpp})
-		eval "${old}"
-		popd >/dev/null
+		local -a files
+		GetHeadersWithNullGlob "${temp_modules}/${dir}/boost" files
 
 		files=("${files[@]%\.*}")
 		local -a tmp=(${dir})
 		UniqueAndRemove files tmp files
 
 		if [[ ${#files[@]} -eq 1 && "${files[0]}" != "${dir}" ]]; then
-			echo "'s/${files[0]}/${dir}/;'\\"
+			result+="'s/${files[0]}/${dir}/;'\\"$'\n'
 		elif [[ ${#files[@]} -ge 2 ]]; then
-			echo $(IFS=\| ; echo "'s/^(${files[*]})$/${dir}/;'\\")
+			result+=$(IFS=\| ; echo "'s/^(${files[*]})$/${dir}/;'\\")$'\n'
 		fi
 	done
 }
@@ -304,6 +305,17 @@ UniqueAndRemove()
 	local -n result=$3
 	# add remove twice to force remove if not in values, better solution?
 	result=($(echo "${values[@]}" "${remove[@]}" "${remove[@]}" | tr ' ' '\n' | sort | uniq -u))
+}
+
+GetHeadersWithNullGlob()
+{
+	pushd "$1" >/dev/null || ErrorExit
+	local -n values=$2
+	local old=$(shopt -p nullglob)
+	shopt -s nullglob
+	values=(*.{h,hpp})
+	eval "${old}"
+	popd >/dev/null
 }
 
 FindDirectoryAbove()
