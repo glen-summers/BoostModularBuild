@@ -33,7 +33,6 @@ Main()
 			[[ "$#" -eq 1 ]] || ErrorExit "Usage: ${0} build <RootModule>"
 			Build "${1}"
 			;;
-
 		deps)
 			shift
 			local -a deps_mods="${@}"
@@ -52,7 +51,6 @@ Main()
 			echo "${result}"
 			echo "# generated fix"
 			;;
-
 		nuke)
 			shift
 			[[ "$#" -eq 1 ]] || ErrorExit "Usage: ${0} nuke <RootModule>"
@@ -62,7 +60,12 @@ Main()
 			Clean
 			;;
 		*)
-			ErrorExit "Usage: ${0} {build <RootModule>|nuke <RootModule>|clean}"
+			ErrorExit "Usage: ${0} build <RootModule>|deps <RootModule>|clean|nuke|gen
+    build <mod>    Generates an include directory with all <mod>'s dependencies
+    deps <mod>     Displays all dependencies of <mod>
+    clean          remove temp files
+    nuke <mod>     remove the built target
+    gen            generate module file lookup code"
 	esac
 }
 
