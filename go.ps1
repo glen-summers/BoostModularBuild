@@ -50,7 +50,7 @@ function Main
 			if (! (Test-Path $TouchFile))
 			{
 				[string[]] $Deps = Get-Deps $Module | ? { $_ }
-
+				$Deps += $Module
 				Write-Host "building $Target"
 
 				md $Target -Force | Out-Null
@@ -245,8 +245,8 @@ function Get-Module
 	Download-File $Url $FileName
 
 	$Target = "$TempModules\$Module"
-		if (-not (Test-Path $Target)) {
-			ExtractTarGz $FileName $Target
+	if (-not (Test-Path $Target)) {
+		ExtractTarGz $FileName $Target
 	}
 	"$Target\$ModArchive"
 }
