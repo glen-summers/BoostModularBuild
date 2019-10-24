@@ -1,15 +1,15 @@
-﻿param ([string] $Target, [string] $Module)
+﻿param ([string] $Target, [string] $Module, [string] $TempDir)
 $ErrorActionPreference = "Stop"
-$Temp="$PSScriptRoot\temp"
-$DepDir='ExternalDependencies'
+$Temp = if ($TempDir) {$TempDir} else {"$PSScriptRoot\temp"}
+$DepDir = 'ExternalDependencies'
 
-$NugetVer='v4.9.4'
-$NugetUrl="https://dist.nuget.org/win-x86-commandline/$NugetVer/nuget.exe"
+$NugetVer = 'v4.9.4'
+$NugetUrl = "https://dist.nuget.org/win-x86-commandline/$NugetVer/nuget.exe"
 
-$SevenZipVer='18.1.0'
+$SevenZipVer = '18.1.0'
 
-$BoostVer='1.69.0'
-$ModuleUrl="https://github.com/boostorg/`$Module`/archive/`$BoostArchive`.tar.gz"
+$BoostVer = '1.69.0'
+$ModuleUrl = "https://github.com/boostorg/`$Module`/archive/`$BoostArchive`.tar.gz"
 
 # findstr isnt finding the '#' due to regex limitations so just add a Sanitiser filter afterwards
 $Sanitiser=   "^[^:]*:[ \t]*#[ \t]*include[ \t]*<boost\/[a-zA-Z0-9\._]*[\/>]"
@@ -40,7 +40,7 @@ function Main
 		{
 			if (!$Module)
 			{
-				"Syntax: build <RootModule>"
+				"Syntax: build <RootModule> [<TempDir>]"
 				return
 			}
 
