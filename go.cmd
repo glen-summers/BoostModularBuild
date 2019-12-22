@@ -1,1 +1,1 @@
-@echo off & cls & powershell %~dp0go.ps1 %*
+@echo off & cls & powershell -file "%~dp0go.ps1" %*

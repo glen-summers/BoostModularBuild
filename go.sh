@@ -1,6 +1,5 @@
 #!/bin/bash
 
-boost_ver='1.69.0'
 dep_dir='ExternalDependencies'
 wget_opt='--secure-protocol=auto --no-check-certificate --quiet'
 
@@ -10,6 +9,8 @@ Init()
 	temp_dir="${root}/temp"
 	download_dir="${temp_dir}/downloads"
 	temp_modules="${temp_dir}/modules"
+	
+	boost_ver=$(< "$root/versions.config")
 
 	local find_dir="$( FindDirectoryAbove ${root} ${dep_dir} )"
 	if [[ -z "${find_dir}" ]]; then

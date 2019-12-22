@@ -8,7 +8,6 @@ $NugetUrl = "https://dist.nuget.org/win-x86-commandline/$NugetVer/nuget.exe"
 
 $SevenZipVer = '18.1.0'
 
-$BoostVer = '1.69.0'
 $ModuleUrl = "https://github.com/boostorg/`$Module`/archive/`$BoostArchive`.tar.gz"
 
 # findstr isnt finding the '#' due to regex limitations so just add a Sanitiser filter afterwards
@@ -17,6 +16,8 @@ $BoostIncludeCapture="[ \t]*#[ \t]*include[ \t]*<boost\/([a-zA-Z0-9\._]*)[\/|>].
 
 function Init
 {
+	$BoostVer = Get-Content "$PSScriptRoot\versions.config"
+
 	$global:Downloads = "$temp\downloads"
 	$global:Nuget = "$Downloads\nuget.exe"
 	$global:SevenZip = "$Downloads\7-Zip.CommandLine.$SevenZipVer\tools\x64\7za.exe"
