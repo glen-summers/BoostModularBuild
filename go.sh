@@ -6,11 +6,11 @@ wget_opt='--secure-protocol=auto --no-check-certificate --quiet'
 Init()
 {
 	root=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+	source "${root}/versions.config" || ErrorExit "versions"
+
 	temp_dir="${root}/temp"
 	download_dir="${temp_dir}/downloads"
 	temp_modules="${temp_dir}/modules"
-	
-	boost_ver=$(< "$root/versions.config")
 
 	local find_dir="$( FindDirectoryAbove ${root} ${dep_dir} )"
 	if [[ -z "${find_dir}" ]]; then

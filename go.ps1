@@ -16,7 +16,9 @@ $BoostIncludeCapture="[ \t]*#[ \t]*include[ \t]*<boost\/([a-zA-Z0-9\._]*)[\/|>].
 
 function Init
 {
-	$BoostVer = Get-Content "$PSScriptRoot\versions.config"
+	$AppProps = ConvertFrom-StringData (get-content "$PSScriptRoot\versions.config" -raw)
+	$BoostVer = $AppProps["boost_ver"]
+	echo "boost = $BoostVer"
 
 	$global:Downloads = "$temp\downloads"
 	$global:Nuget = "$Downloads\nuget.exe"
