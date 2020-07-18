@@ -1,0 +1,11 @@
+name: manually triggered
+
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@master
+      - name: Run ./go.sh build test
+        run: ./go.sh build test
