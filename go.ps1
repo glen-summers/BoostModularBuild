@@ -3,11 +3,6 @@ $ErrorActionPreference = "Stop"
 $Temp = if ($TempDir) {$TempDir} else {"$PSScriptRoot\temp"}
 $DepDir = 'ExternalDependencies'
 
-$NugetVer = 'v4.9.4'
-$NugetUrl = "https://dist.nuget.org/win-x86-commandline/$NugetVer/nuget.exe"
-
-$SevenZipVer = '18.1.0'
-
 $ModuleUrl = "https://github.com/boostorg/`$Module`/archive/`$BoostArchive`.tar.gz"
 
 # findstr isnt finding the '#' due to regex limitations so just add a Sanitiser filter afterwards
@@ -21,16 +16,12 @@ function Init
 	echo "boost = $BoostVer"
 
 	$global:Downloads = "$temp\downloads"
-	$global:Nuget = "$Downloads\nuget.exe"
-	$global:SevenZip = "$Downloads\7-Zip.CommandLine.$SevenZipVer\tools\x64\7za.exe"
 	$global:BoostArchive = "boost-$BoostVer"
 	$global:BoostVerUnd = 'boost_' + $BoostVer.Replace('.', '_')
 	$global:TempModules = "$temp\modules"
 	$global:Above = Get-DirectoryAbove $PSScriptRoot $DepDir $Temp
 
 	md $Downloads -Force | Out-Null
-	Download-File $NugetUrl $Nuget
-	Download-Nuget $SevenZip $SevenZipVer
 }
 
 function Main
@@ -60,7 +51,7 @@ function Main
 				foreach ($mod in $Deps)
 				{
 					$ModDir = Get-Module $mod
-					Copy-Item $ModDir\include\boost $Target -Force -Recurse # try move but avoid conflicts?
+					Copy-Item "$ModDir\include\boost" $Target -Force -Recurse # try move but avoid conflicts?
 				}
 				echo $null >> $TouchFile
 				Delete-Tree $TempModules
@@ -353,20 +344,12 @@ function Download-File
 	}
 }
 
-function Download-Nuget
-{
-	param ([string]$Name, [string]$Version)
-	if ( -Not (Test-Path $Name))
-	{
-		Write-Host "downloading $Name"
-		& $Nuget install 7-Zip.CommandLine -version "$Version" -OutputDirectory "$Downloads" -PackageSaveMode nuspec
-	}
-}
-
 function ExtractTarGz
 {
 	param ([string]$Archive, [string]$OutDir)
-	(& cmd /c $SevenZip x $Archive -so `| $SevenZip x -aoa -si -ttar -o"$OutDir") 2>&1 | Out-Null
+
+	md "$($OutDir)" -Force | Out-Null
+	& tar -xzf "$Archive" -C "$($OutDir)" | Out-Null
 }
 
 function Delete-Tree
