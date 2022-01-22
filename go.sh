@@ -73,7 +73,7 @@ Main()
 Build()
 {
 	local mod="${1}"
-	local boost_target="${target_root}/boost_${boost_ver_und}_${mod^^}"
+	local boost_target="${target_root}/boost_${boost_ver_und}_${mod}"
 
 	if [[ ! -f "${boost_target}/successfully_installed" ]]; then
 		local -a mods=("${mod}")
@@ -147,7 +147,7 @@ Clean()
 Nuke()
 {
 	local mod="${1}"
-	local boost_target="${target_root}/boost_${boost_ver_und}_${mod^^}"
+	local boost_target="${target_root}/boost_${boost_ver_und}_${mod}"
 	DeleteTree "${boost_target}"
 }
 
